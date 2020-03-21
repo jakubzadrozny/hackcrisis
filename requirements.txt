@@ -10,6 +10,7 @@ botocore==1.15.26         # via boto3, s3transfer
 django==3.0.4             # via -r requirements.in
 docutils==0.15.2          # via botocore
 jmespath==0.9.5           # via boto3, botocore
+psycopg2==2.8.4           # via -r requirements.in
 python-dateutil==2.8.1    # via botocore
 pytz==2019.3              # via django
 s3transfer==0.3.3         # via boto3

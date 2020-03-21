@@ -9,10 +9,6 @@ from .models import CustomUser, validate_phone_number
 from .sms import send_sms
 
 
-class HttpResponseNoContent(HttpResponse):
-    status_code = HTTPStatus.NO_CONTENT
-
-
 def get_phone(params):
     phone = params.get('phone', None)
     if phone is None or not validate_phone_number(phone):
@@ -48,7 +44,7 @@ def request_token(request):
     user.generate_token()
     msg = 'Authentication code: ' + user.token
     send_sms(user.phone, msg)
-    return HttpResponseNoContent()
+    return HttpResponse()
 
 
 @require_POST
@@ -68,4 +64,4 @@ def login_view(request):
         return HttpResponseForbidden()
 
     login(request, user)
-    return HttpResponseNoContent()
+    return HttpResponse()

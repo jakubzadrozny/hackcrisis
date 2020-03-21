@@ -1,41 +1,66 @@
+import json
 from http import HTTPStatus
 
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
-from django.views.decorators.http import require_http_methods, require_GET
+from django.views.decorators.http import require_http_methods, require_GET, require_POST
 
 from .models import Questionnaire, Submission
 
 
-class HttpResponseNoContent(HttpResponse):
-    status_code = HTTPStatus.NO_CONTENT
+def walk_tree(t, p):
+    for key in p:
+        if type(t) is not dict or not key in t:
+            raise ValueError()
+        t = t[key]
+
+    if type(t) is not dict or (not 'category' in t and not 'risk' in t):
+        raise ValueError()
+    return t.get('category', None) or t.get('risk', None)
+
+
+def calculate_categories(q, s):
+    q = json.loads(q)
+    paths = [a.split('.') for a in s]
+    categories = [walk_tree(q, p) for p in paths]
+    return categories
+
+
+def get_params(request):
+    if request.headers['Content-Type'] == 'application/x-www-form-urlencoded':
+        return request.POST
+    elif request.headers['Content-Type'] == 'application/json':
+        return json.loads(request.body.decode())
+    else:
+        raise ValueError("wrong content type")
 
 
 @require_GET
 def questionnaire(request):
     q = Questionnaire.objects.order_by('-date_created').first()
-    return JsonResponse({'questionnaire': q.content})
+    return HttpResponse(q.content, content_type='application/json')
 
 
-@require_http_methods(["GET", "POST"])
+@require_POST
 def submission(request):
     if not request.user.is_authenticated:
         return HttpResponseForbidden()
 
     user = request.user
-
-    if request.method == "GET":
-        s = Submission.objects.filter(user=user).order_by('-submission_time').first()
-        content = s.content if s is not None else None
-        return JsonResponse({'submission': content})
-
-    data = request.POST.get('data', None)
-    if data is None:
+    params = get_params(request)
+    data = params.get('data', None)
+    if data is None or 'result' not in data:
         return HttpResponseBadRequest()
 
     q = Questionnaire.objects.order_by('-date_created').first()
+    try:
+        categories = calculate_categories(q.content, data['result'])
+    except ValueError:
+        return HttpResponseBadRequest()
+
     submission = Submission(questionnaire=q, user=user, content=data)
     submission.save()
-    return HttpResponseNoContent()
+    user.set_categories(categories)
+    return HttpResponse()
 
 
 @require_http_methods(["GET", "POST"])
@@ -48,7 +73,8 @@ def profile(request):
     if request.method == "GET":
         return JsonResponse(user.profile)
 
-    data = request.POST.get('data', None)
+    params = get_params(request)
+    data = params.get('data', None)
     if data is None:
         return HttpResponseBadRequest()
 
@@ -57,7 +83,7 @@ def profile(request):
     except ValueError:
         return HttpResponseBadRequest()
 
-    return HttpResponseNoContent()
+    return HttpResponse()
 
 
 @require_http_methods(["GET", "POST"])
@@ -70,7 +96,8 @@ def contacts(request):
     if request.method == "GET":
         return JsonResponse({'contacts': user.contacts})
 
-    contacts = request.POST.get('contacts', None)
+    params = get_params(request)
+    contacts = params.get('data', None)
     if contacts is None:
         return HttpResponseBadRequest()
 
@@ -79,4 +106,4 @@ def contacts(request):
     except ValueError:
         return HttpResponseBadRequest()
 
-    return HttpResponseNoContent()
+    return HttpResponse()
