@@ -31,8 +31,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     phone = PhoneNumberField(unique=True, blank=False, null=False)
     token = models.CharField(max_length=24, blank=True, null=True)
     token_expiration = models.DateTimeField(blank=True, null=True)
+    sharepermission = models.BooleanField(blank=True, null=True)
 
-    is_verified = models.BooleanField(blank=False, null=False, default=False)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
 
@@ -86,7 +86,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
             'recommendation': category.recommendation,
         } for category in separate ]}
 
-        data = {**export_category, **export_separate}
+        data = {**export_category, **export_separate, 'sharepermission': self.sharepermission}
         return data
 
     @profile.setter
@@ -118,7 +118,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     @property
     def contacts(self):
         contacts = {}
-        for contact in self._contacts.all():
+        for contact in self._contacts.filter(sharepermission=True).all():
             heaviest = contact.category
             separate = contact.separate
             if heaviest is not None:

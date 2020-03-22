@@ -1,6 +1,7 @@
 import json
 from http import HTTPStatus
 
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.views.decorators.http import require_http_methods, require_GET, require_POST
 
@@ -106,4 +107,25 @@ def contacts(request):
     except ValueError:
         return HttpResponseBadRequest()
 
+    return HttpResponse()
+
+
+@require_POST
+def sharepermission(request):
+    if not request.user.is_authenticated:
+        return HttpResponseForbidden()
+
+    user = request.user
+    params = get_params(request)
+    permission = params.get('data', None)
+    if permission is None:
+        return HttpResponseBadRequest()
+
+    user.sharepermission = permission
+    try:
+        user.full_clean(exclude=['password'])
+    except ValidationError as e:
+        return HttpResponseBadRequest()
+
+    user.save()
     return HttpResponse()

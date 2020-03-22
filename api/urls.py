@@ -8,4 +8,5 @@ urlpatterns = [
 
     path('user/profile', views.profile, name='profile'),
     path('user/contacts', views.contacts, name='contacts'),
+    path('user/sharepermission', views.sharepermission, name='sharepermission')
 ]
