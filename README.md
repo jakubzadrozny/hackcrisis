@@ -2,6 +2,7 @@
 
 ## API Endpoints
 
+### Auth
 ```
 POST /auth/request_token
 {
@@ -9,6 +10,7 @@ POST /auth/request_token
 }
 ```
 Request an auth token, provided via SMS
+
 
 ```
 POST /auth/login
@@ -19,10 +21,13 @@ POST /auth/login
 ```
 Login with a token received via SMS. Returns a `sesssionId` cookie.
 
+### API
+
 ```
 GET /api/user/profile
 ```
 Get overview info of the current user, i.e. his estimated health status, recomennded actions and in-app permissions.
+
 
 ```
 POST /api/user/profile
@@ -37,10 +42,12 @@ POST /api/user/profile
 ```
 Provide information about the current user.
 
+
 ```
 GET /api/user/contacts
 ```
 Get a list of the current user's contacts with their estimated health status (if they've opted to share this information).
+
 
 ```
 POST /api/user/contacts
@@ -50,10 +57,12 @@ POST /api/user/contacts
 ```
 Provide a list of the current user contacts.
 
+
 ```
 GET /api/questionnaire
 ```
 Download the latest version of the in-app questionnaire.
+
 
 ```
 POST /api/submission
