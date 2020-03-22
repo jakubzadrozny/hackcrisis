@@ -110,7 +110,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         try:
             self.full_clean(exclude=['password'])
         except ValidationError as e:
-            print(e)
             raise ValueError("bad data")
 
         self.save()
