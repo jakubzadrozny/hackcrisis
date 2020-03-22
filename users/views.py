@@ -1,19 +1,13 @@
 import json
 from http import HTTPStatus
 
+from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate, login
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.views.decorators.http import require_POST
 
-from .models import CustomUser, validate_phone_number
+from .models import CustomUser
 from .sms import send_sms
-
-
-def get_phone(params):
-    phone = params.get('phone', None)
-    if phone is None or not validate_phone_number(phone):
-        return None
-    return phone
 
 
 def get_params(request):
@@ -32,18 +26,19 @@ def request_token(request):
     except ValueError:
         return HttpResponseBadRequest()
 
-    phone = get_phone(params)
-    if phone is None:
-        return HttpResponseBadRequest()
-
+    phone = params.get('phone', None)
     try:
         user = CustomUser.objects.get(phone=phone)
     except CustomUser.DoesNotExist:
         user = CustomUser(phone=phone)
+        try:
+            user.full_clean()
+        except ValidationError:
+            return HttpResponseBadRequest()
 
     user.generate_token()
     msg = 'Authentication code: ' + user.token
-    send_sms(user.phone, msg)
+    send_sms(str(user.phone), msg)
     return HttpResponse()
 
 
@@ -54,7 +49,7 @@ def login_view(request):
     except ValueError:
         return HttpResponseBadRequest()
 
-    phone = get_phone(params)
+    phone = params.get('phone', None)
     token = params.get('token', None)
     if phone is None or token is None:
         return HttpResponseBadRequest()

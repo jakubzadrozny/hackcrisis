@@ -2,3 +2,10 @@
 __pycache__
 
 hackcrisis/settings.py
+
+celerybeat-schedule
+celerybeat.pid
+
+dump.rdb
+
+static/

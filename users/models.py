@@ -1,4 +1,5 @@
 import random
+import uuid
 import string
 from datetime import datetime, timedelta
 
@@ -7,6 +8,7 @@ from django.db.models.aggregates import Max
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from phonenumber_field.modelfields import PhoneNumberField
 
 from .managers import CustomUserManager
 
@@ -15,21 +17,18 @@ TOKEN_LENGTH = 6
 TOKEN_VALID_MINUTES = 15
 
 
-def validate_phone_number(phone):
-    return len(phone) >= 9 and len(phone) <= 12 and all([c in string.digits for c in phone[1:]])
-
-
 class Category(models.Model):
     slug = models.CharField(max_length=16, blank=False, null=False, unique=True)
     severity = models.IntegerField(blank=True, null=False, default=0)
     recommendation = models.TextField(blank=True, null=True)
+    is_separate = models.BooleanField(default=False)
 
     def __str__(self):
         return self.slug
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    phone = models.CharField(unique=True, max_length=12, blank=False, null=False)
+    phone = PhoneNumberField(unique=True, blank=False, null=False)
     token = models.CharField(max_length=24, blank=True, null=True)
     token_expiration = models.DateTimeField(blank=True, null=True)
 
@@ -38,6 +37,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
 
     date_joined = models.DateTimeField(default=timezone.now)
+    randomized_id = models.CharField(unique=True, max_length=36, default=uuid.uuid4)
 
     push_id = models.CharField(max_length=64, blank=True, null=True)
     locale = models.CharField(max_length=10, blank=True, null=True)
@@ -53,7 +53,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     objects = CustomUserManager()
 
     def __str__(self):
-        return self.phone
+        return str(self.phone)
 
     def generate_token(self):
         self.token = ''.join(random.choice(string.digits) for _ in range(TOKEN_LENGTH))
@@ -61,16 +61,32 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         self.save()
 
     @property
+    def category(self):
+        return self._categories.filter(is_separate=False).order_by('-severity').first()
+
+    @property
+    def separate(self):
+        return self._categories.filter(is_separate=True).all()
+
+    @property
     def profile(self):
-        category = self._categories.order_by('-severity').first()
-        if category is None:
-            return {'category': None}
-        else:
-            data = {
-                'category': str(category),
-                'severity': category.severity,
-                'recommendation': category.recommendation,
+        heaviest = self.category
+        separate = self.separate
+        if heaviest is not None:
+            export_category = {
+                'category': str(heaviest),
+                'severity': heaviest.severity,
+                'recommendation': heaviest.recommendation,
             }
+        else:
+            export_category = {'category': None}
+
+        export_separate = {'separate': [{
+            'category': str(category),
+            'recommendation': category.recommendation,
+        } for category in separate ]}
+
+        data = {**export_category, **export_separate}
         return data
 
     @profile.setter
@@ -103,11 +119,13 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def contacts(self):
         contacts = {}
         for contact in self._contacts.all():
-            category = contact._categories.order_by('-severity').first()
-            if category is not None:
-                contacts[contact.phone] = {
-                    'category': str(category),
-                    'severity': category.severity,
+            heaviest = contact.category
+            separate = contact.separate
+            if heaviest is not None:
+                contacts[str(contact.phone)] = {
+                    'category': str(heaviest),
+                    'severity': heaviest.severity,
+                    'separate': [str(category) for category in separate],
                 }
         return contacts
 
