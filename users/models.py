@@ -136,9 +136,17 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         for contact in contacts_:
             try:
                 user = CustomUser.objects.get(phone=contact)
-                users.append(user)
             except CustomUser.DoesNotExist:
-                pass
+                user = CustomUser(phone=contact)
+                try:
+                    user.full_clean(exclude=['password'])
+                    user.save()
+                except ValidationError:
+                    user = None
+
+            if user is not None:
+                users.append(user)
+
         self._contacts.add(*users)
 
     def set_categories(self, categories_):
